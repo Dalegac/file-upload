@@ -13,7 +13,7 @@ module.exports = appInfo => {
       enable: false
     },
   }
-  config.UPLOAD_DIR = path.resolve(__dirname, "..", "target"); // 大文件存储目录
+  config.UPLOAD_DIR = path.resolve(__dirname, "..", "app/public"); // 大文件存储目录
 
   return config;
 };

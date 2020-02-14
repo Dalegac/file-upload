@@ -11,23 +11,36 @@ class HomeController extends Controller {
     }
   }
   async upload(){
-    const { ctx } = this;
+    const { ctx } = this
     const file = ctx.request.files[0];
-
+    console.log(file)
     const filePath = path.resolve(
       this.config.UPLOAD_DIR,
       file.filename
     )
+    console.log(filePath)
+
     // 文件存在直接返回
     if (fse.existsSync(filePath)) {
-      this.ctx.body = '文件存在'
+      this.ctx.body = {
+        code:-1,
+        msg:'文件存在',
+        url:'/public/'+file.filename
+
+      }
       return
     }
     if (!fse.existsSync(this.config.UPLOAD_DIR)) {
       await fse.mkdirs(this.config.UPLOAD_DIR)
     }
     await fse.move(file.filepath, filePath)
-    this.ctx.body='上传成功'
+    this.ctx.body={
+      code:0,
+      msg:'上传成功',
+      url:'/public/'+file.filename
+    }
+
+
   }
 }
 
