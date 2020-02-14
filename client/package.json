@@ -9,6 +9,7 @@
     "start": "npm run serve"
   },
   "dependencies": {
+    "axios": "^0.19.2",
     "core-js": "^3.6.4",
     "element-ui": "^2.4.5",
     "vue": "^2.6.11"
@@ -36,7 +37,6 @@
     },
     "rules": {}
   },
-
   "browserslist": [
     "> 1%",
     "last 2 versions"
