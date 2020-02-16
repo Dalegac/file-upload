@@ -19,10 +19,32 @@ class HomeController extends Controller {
       msg:'合并成功'
     }
 
-
+  }
+  async getUploadedList(dirPath){
+    return fse.existsSync(dirPath) 
+      ? (await fse.readdir(dirPath)).filter(name=>name[0]!=='.') // 过滤诡异的隐藏文件 比如.DS_store
+      : []
   }
   async check(){
+    const { ext, hash } = this.ctx.request.body
+    const filePath = path.resolve(this.config.UPLOAD_DIR, `${hash}.${ext}`)
+    console.log(filePath)
+    // 文件是否存在
+    let uploaded = false
+    let uploadedList = []
+    if (fse.existsSync(filePath)) {
+      // 存在文件，直接返回已上传
+      uploaded = true
+    }else{
+      // 文件没有完全上传完毕，但是可能存在部分切片上传完毕了
+      uploadedList = await this.getUploadedList(path.resolve(this.config.UPLOAD_DIR, hash))
+    }
 
+    this.ctx.body = {
+      code:0,
+      uploaded,
+      uploadedList // 过滤诡异的隐藏文件
+    }
   }
   async upload(){
     const { ctx } = this

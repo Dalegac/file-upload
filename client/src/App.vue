@@ -1,10 +1,11 @@
 <template>
   <div class="app">
+    <i class="el-icon-loading" style="color:#F56C6C;"></i>
+
     <!-- <form method="post" action="http://localhost:7001/upload" enctype="multipart/form-data"> -->
     <div ref="drag" id="drag">
       <input type="file" name="file" @change="handleFileChange" />
       <!-- <img :src="preview" alt=""> -->
-
     </div>
     <!-- <div v-loading="loading">
       <textarea ref="article" v-model="article" cols="30" rows="10"></textarea>
@@ -19,6 +20,26 @@
     <div>
       <el-button type="primary" @click="handleUpload">上 传</el-button>
     </div>
+    <!-- 方块进度条 -->
+
+      <div class="cube-container" :style="{width:cubeWidth+'px'}">
+        <div class="cube" 
+
+          v-for="chunk in chunks" 
+          :key="chunk.name">
+          <div           
+            :class="{
+            'uploading':chunk.progress>0&&chunk.progress<100, 
+            'success':chunk.progress==100,
+            'error':chunk.progress<0,
+            }" 
+            :style="{height:chunk.progress+'%'}"
+            >
+            <i v-if="chunk.progress<100 &&chunk.progress>1" class="el-icon-loading" style="color:#F56C6C;"></i>
+          </div>
+        </div>
+      </div>
+
   </div>
 </template>
 
@@ -32,9 +53,9 @@ export default {
   name: "app",
   data() {
     return {
+      chunks:[],
       file: null,
       hash:null,
-      uploadProgress: 0,
       preview:null,
       article:`# 蜗牛老湿开心的一天
       * 吃饭
@@ -47,23 +68,32 @@ export default {
   computed:{
     articleHtml(){
       return marked(this.article)
+    },
+    cubeWidth(){
+      return Math.ceil(Math.sqrt(this.chunks.length))*16
+    },
+    uploadProgress() {
+      if (!this.file || !this.chunks.length) return 0;
+      console.log(this.chunks)
+      const loaded = this.chunks
+        .map(item => item.chunk.size * item.progress)
+        .reduce((acc, cur) => acc + cur);
+      return parseInt((loaded / this.file.size).toFixed(2));
     }
   },
   async mounted() {
-    // let ret = await this.$axios.get('/index')
-    // console.log(ret)
-    this.bindDragEvent('drag',()=>{
-      this.preview = window.URL.createObjectURL(this.file)
+    // this.bindDragEvent('drag',()=>{
+    //   this.preview = window.URL.createObjectURL(this.file)
 
-    })
-    this.bindDragEvent('article',async ()=>{
-        this.loading = true
-        const ret = await this.handleUpload()
-        this.article += `![${this.file.name}](/api${ret.url})`
-        this.loading = false
+    // })
+    // this.bindDragEvent('article',async ()=>{
+    //     this.loading = true
+    //     const ret = await this.handleUpload()
+    //     this.article += `![${this.file.name}](/api${ret.url})`
+    //     this.loading = false
 
-    })
-    this.bindPasteEvent()
+    // })
+    // this.bindPasteEvent()
   },
   methods: {
     bindPasteEvent(){
@@ -99,6 +129,7 @@ export default {
         },
         false)
     },
+
     handleFileChange(e) {
       const [file] = e.target.files;
       if (!file) return;
@@ -227,6 +258,10 @@ export default {
       }
       return chunks;
     },
+    ext(filename){
+      // 返回文件后缀名
+      return filename.split('.').pop()
+    },
     async calculateHash(file){
       const ret = await this.blobToData(file)
       return sparkMd5.hash(ret)
@@ -238,6 +273,16 @@ export default {
       }
       // 计算hash 文件指纹标识
       this.hash = await this.calculateHash(this.file)
+
+      // 检查文件是否已经上传
+      const { uploaded, uploadedList } = await this.$axios.post('/check',{
+          ext:this.ext(this.file.name),
+          hash:this.hash
+        }
+      )
+      if(uploaded){
+        return this.$message.success("秒传:上传成功")
+      }
       // 切片
       let chunks = this.createFileChunk(this.file);
 
@@ -248,60 +293,44 @@ export default {
           hash:this.hash,
           chunk:chunk.file,
           name:chunkName,
-          // progress:
-          index
+          index,
+          // 设置进度条
+          progress: uploadedList.indexOf(chunkName) > -1 ? 100 : 0,
         }
-        return 
       })
       // 传入已经存在的切片清单
-      await this.uploadChunks();
+      await this.uploadChunks(uploadedList);
 
     },
     async mergeRequest(){
       await this.$axios.post("/merge", {
-        ext: this.file.name.split('.').pop(),
+        ext: this.ext(this.file.name),
         size: CHUNK_SIZE,
         hash: this.hash
       });
     },
-    async uploadChunks(){
-      
-      console.log(this.file)
-      console.log(this.chunks)
+    async uploadChunks(uploadedList=[]){
       const list = this.chunks
-        // .filter(chunk => uploadedList.indexOf(chunk.hash) == -1)
+        .filter(chunk => uploadedList.indexOf(chunk.name) == -1)
         .map(({ chunk,name, hash, index }, i) => {
           const form = new FormData();
           form.append("chunkname", name)
-          form.append("ext", this.file.name.split('.').pop())
+          form.append("ext", this.ext(this.file.name))
           form.append("hash", hash)
           // form.append("file", new File([chunk],name,{hash,type:'png'}))
           form.append("file",chunk)
 
           return { form, index}
         })
-        .map(({ form, index }) =>this.$axios.post('/upload',form));
+        .map(({ form, index }) =>this.$axios.post('/upload',form, {
+          onUploadProgress: progress => {
+            this.chunks[index].progress = Number(((progress.loaded / progress.total) * 100).toFixed(2));
+          }
+        }))
       await Promise.all(list);
-      await this.mergeRequest();
-          // request({
-          //   url: "/upload",
-          //   data: form,
-          //   onProgress: this.createProgresshandler(this.chunks[index]),
-          //   requestList: this.requestList
-          // })
-
-      // const form = new FormData();
-      // form.append("file", this.file);
-      // form.append("filename", this.file.name+'.tmp');
-      // const ret = await this.$axios.post("/upload", form, {
-      //   onUploadProgress: progress => {
-      //     this.uploadProgress = Number(
-      //       ((progress.loaded / progress.total) * 100).toFixed(2)
-      //     );
-      //   }
-      // });
-      // this.$message.info(ret.msg);
-      // return ret
+      if(uploadedList.length + list.length === this.chunks.length){
+        await this.mergeRequest()
+      }
     }
   }
 };
@@ -328,5 +357,21 @@ img
   img 
     width 200px
 
+.cube-container
+  width 100px
+  overflow hidden
+.cube
+  width 14px
+  height 14px
+  line-height 12px;
+  border 1px solid black
+  background  #eee
+  float left
+  >.success
+    background #67C23A
+  >.uploading
+    background #409EFF
+  >.error
+    background #F56C6C
 
 </style>
