@@ -259,7 +259,7 @@ export default {
     },
     async mergeRequest(){
       await this.$axios.post("/merge", {
-        filename: this.file.name,
+        ext: this.file.name.split('.').pop(),
         size: CHUNK_SIZE,
         hash: this.hash
       });

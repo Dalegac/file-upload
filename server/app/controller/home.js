@@ -11,10 +11,18 @@ class HomeController extends Controller {
     }
   }
   async merge(){
+    const {ext,size,hash} = this.ctx.request.body
+    const filePath = path.resolve(this.config.UPLOAD_DIR, `${hash}.${ext}`)
+    await this.ctx.service.upload.mergeFileChunk(filePath, hash, size)
+    this.ctx.body = {
+      code:0,
+      msg:'合并成功'
+    }
+
 
   }
   async check(){
-    
+
   }
   async upload(){
     const { ctx } = this
