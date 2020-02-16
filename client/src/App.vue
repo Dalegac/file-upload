@@ -3,14 +3,14 @@
     <!-- <form method="post" action="http://localhost:7001/upload" enctype="multipart/form-data"> -->
     <div ref="drag" id="drag">
       <input type="file" name="file" @change="handleFileChange" />
-      <img :src="preview" alt="">
+      <!-- <img :src="preview" alt=""> -->
 
     </div>
-    <div v-loading="loading">
+    <!-- <div v-loading="loading">
       <textarea ref="article" v-model="article" cols="30" rows="10"></textarea>
       <div class="output" v-html="articleHtml"></div>
     </div>
-    <div v-if="file">{{file.name}}</div>
+    <div v-if="file">{{file.name}}</div> -->
 
     <div>
       上传进度
@@ -24,7 +24,8 @@
 
 <script>
 import marked from 'marked'
-const SIZE_LIMIT = 10*1024*1024 // 1M
+import sparkMd5 from 'spark-md5'
+const CHUNK_SIZE = 2*1024*1024 // 1M
 const IMG_WIDTH_LIMIT = 1000
 const IMG_HEIGHT_LIMIT = 1000
 export default {
@@ -32,6 +33,7 @@ export default {
   data() {
     return {
       file: null,
+      hash:null,
       uploadProgress: 0,
       preview:null,
       article:`# 蜗牛老湿开心的一天
@@ -101,16 +103,26 @@ export default {
       const [file] = e.target.files;
       if (!file) return;
      
-      if(file.size>SIZE_LIMIT){
-        this.$message.error("请选择小于2M的文件");
-        return;
-      }
-      if(!this.isImage(file)){
-        this.$message.error("请选择正确的图片格式");
-        return 
-      }
+      // if(file.size>CHUNK_SIZE){
+      //   this.$message.error("请选择小于2M的文件");
+      //   return;
+      // }
+      // if(!this.isImage(file)){
+      //   this.$message.error("请选择正确的图片格式");
+      //   return 
+      // }
 
       this.file = file;
+    },
+    async blobToData(blob){
+      return new Promise(resolve=>{
+        const reader = new FileReader()
+        reader.onload = function () {
+          resolve(reader.result)
+        }
+        reader.readAsBinaryString(blob)
+      })
+      // 二进制=》ascii码=》转成16进制字符串
     },
     async blobToString(blob){
       return new Promise(resolve=>{
@@ -205,23 +217,91 @@ export default {
       return this.isGif(file) && this.isPng(file) && this.isJpg(file)
 
     },
+    createFileChunk(file,size=CHUNK_SIZE){
+      // 生成文件块 Blob.slice语法
+      const chunks = [];
+      let cur = 0;
+      while (cur < file.size) {
+        chunks.push({index:cur, file: file.slice(cur, cur + size)});
+        cur += size;
+      }
+      return chunks;
+    },
+    async calculateHash(file){
+      const ret = await this.blobToData(file)
+      return sparkMd5.hash(ret)
+    },
     async handleUpload() {
       if (!this.file) {
         this.$message.info("请选择文件");
         return;
       }
-      const form = new FormData();
-      form.append("file", this.file);
-      form.append("filename", this.file.name);
-      const ret = await this.$axios.post("/upload", form, {
-        onUploadProgress: progress => {
-          this.uploadProgress = Number(
-            ((progress.loaded / progress.total) * 100).toFixed(2)
-          );
+      // 计算hash 文件指纹标识
+      this.hash = await this.calculateHash(this.file)
+      // 切片
+      let chunks = this.createFileChunk(this.file);
+
+      this.chunks = chunks.map((chunk,index)=>{
+        // 每一个切片的名字
+        const chunkName = this.hash+'-'+index
+        return {
+          hash:this.hash,
+          chunk:chunk.file,
+          name:chunkName,
+          // progress:
+          index
         }
+        return 
+      })
+      // 传入已经存在的切片清单
+      await this.uploadChunks();
+
+    },
+    async mergeRequest(){
+      await this.$axios.post("/merge", {
+        filename: this.file.name,
+        size: CHUNK_SIZE,
+        hash: this.hash
       });
-      this.$message.info(ret.msg);
-      return ret
+    },
+    async uploadChunks(){
+      
+      console.log(this.file)
+      console.log(this.chunks)
+      const list = this.chunks
+        // .filter(chunk => uploadedList.indexOf(chunk.hash) == -1)
+        .map(({ chunk,name, hash, index }, i) => {
+          const form = new FormData();
+          form.append("chunkname", name)
+          form.append("ext", this.file.name.split('.').pop())
+          form.append("hash", hash)
+          // form.append("file", new File([chunk],name,{hash,type:'png'}))
+          form.append("file",chunk)
+
+          return { form, index}
+        })
+        .map(({ form, index }) =>this.$axios.post('/upload',form));
+      await Promise.all(list);
+      await this.mergeRequest();
+          // request({
+          //   url: "/upload",
+          //   data: form,
+          //   onProgress: this.createProgresshandler(this.chunks[index]),
+          //   requestList: this.requestList
+          // })
+
+      // const form = new FormData();
+      // form.append("file", this.file);
+      // form.append("filename", this.file.name+'.tmp');
+      // const ret = await this.$axios.post("/upload", form, {
+      //   onUploadProgress: progress => {
+      //     this.uploadProgress = Number(
+      //       ((progress.loaded / progress.total) * 100).toFixed(2)
+      //     );
+      //   }
+      // });
+      // this.$message.info(ret.msg);
+      // return ret
     }
   }
 };

@@ -6,6 +6,10 @@ module.exports = appInfo => {
   // config.middleware = ['cors'];
   config.multipart = {
     mode: 'file',
+    // multipart: {
+    // },
+      whitelist: ()=>true
+
 
   }
   config.security = {
