@@ -48,7 +48,10 @@ class HomeController extends Controller {
   }
   async upload(){
     const { ctx } = this
-
+    if(Math.random()<0.5){
+      // 随机报个错
+      return ctx.status = 500;
+    }
     const file = ctx.request.files[0]
     const {chunkname,ext,hash} = ctx.request.body
     console.log(file,hash,chunkname,ext)

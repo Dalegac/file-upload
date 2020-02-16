@@ -425,6 +425,70 @@ export default {
         hash: this.hash
       });
     },
+    sendRequest(chunks, limit=4){
+      return new Promise((resolve,reject)=>{
+        const len = chunks.length
+        let counter = 0
+        // 全局开关
+        let isStop = false 
+
+
+        const start = async ()=>{
+
+          if(isStop){
+            return 
+          }
+          const task = chunks.shift()
+          if(task){
+            const {form,index} = task
+            try{
+              await this.$axios.post('/upload',form, {
+                onUploadProgress: progress => {
+                  this.chunks[index].progress = Number(((progress.loaded / progress.total) * 100).toFixed(2));
+                }
+              })
+              if(counter==len-1){
+                // 最后一个
+                resolve()
+              }else{
+                counter++
+                start()
+              }
+            }catch(e){
+              // 当前切片报错了
+              // 尝试3次重试机制，重新push到数组中
+              console.log('出错了')
+              // 进度条改成红色
+              this.chunks[index].progress = -1
+              if(task.error<3){
+                task.error++
+                // 队首进去 准备重试
+                chunks.unshift(task)
+                start()
+              }else{
+                // 错误3次了 直接结束
+                isStop=true
+                reject()
+              }
+            }
+
+          }
+        }
+
+        while(limit>0){
+          setTimeout(()=>{
+            // 模拟延迟
+            start()
+          }, Math.random()*2000)
+
+          limit-=1
+        }
+
+
+
+      })
+
+    },
     async uploadChunks(uploadedList=[]){
       const list = this.chunks
         .filter(chunk => uploadedList.indexOf(chunk.name) == -1)
@@ -436,17 +500,23 @@ export default {
           // form.append("file", new File([chunk],name,{hash,type:'png'}))
           form.append("file",chunk)
 
-          return { form, index}
+          return { form, index,error:0}
         })
-        .map(({ form, index }) =>this.$axios.post('/upload',form, {
-          onUploadProgress: progress => {
-            this.chunks[index].progress = Number(((progress.loaded / progress.total) * 100).toFixed(2));
-          }
-        }))
-      await Promise.all(list);
-      if(uploadedList.length + list.length === this.chunks.length){
-        await this.mergeRequest()
+      //   .map(({ form, index }) =>this.$axios.post('/upload',form, {
+      //     onUploadProgress: progress => {
+      //       this.chunks[index].progress = Number(((progress.loaded / progress.total) * 100).toFixed(2));
+      //     }
+      //   }))
+      // await Promise.all(list);
+      try{
+        await this.sendRequest([...list],4)
+        if(uploadedList.length + list.length === this.chunks.length){
+          await this.mergeRequest()
+        }
+      }catch(e){
+        this.$message.error('上传似乎除了点小问题，重试试试哈')
       }
+
     }
   }
 };
