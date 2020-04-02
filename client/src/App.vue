@@ -29,6 +29,14 @@
     <div> 
       <el-button type="primary" @click="handleUpload">上 传</el-button>
     </div>
+        <div> 
+      <el-button type="primary" @click="handleUpload1">慢启动上传</el-button>
+    </div>
+
+
+
+
+
     <!-- 方块进度条 -->
 
       <div class="cube-container" :style="{width:cubeWidth+'px'}">
@@ -370,7 +378,53 @@ export default {
         window.requestIdleCallback(workLoop);
       });
     },
+    async handleUpload1(){
+      // @todo数据缩放的比率 可以更平缓  
+      // @todo 并发+慢启动
 
+      // 慢启动上传逻辑 
+      const file = this.file
+      if (!file) return;
+      const fileSize = file.size
+      let offset = 0.1*1024*1024 
+
+      let cur = 0 
+      let count =0
+      this.hash = await this.calculateHashSample();
+
+      while(cur<fileSize){
+        const chunk = file.slice(cur, cur+offset)
+        cur+=offset
+        const chunkName = this.container.hash + "-" + count;
+        const form = new FormData();
+
+          form.append("chunkname", chunkName)
+          form.append("ext", this.ext(this.file.name))
+          form.append("hash", this.hash)
+          // form.append("file", new File([chunk],name,{hash,type:'png'}))
+
+
+        let start = new Date().getTime()
+        await this.$axios.post( '/upload', form)
+        const now = new Date().getTime()
+
+        const time = ((now -start)/1000).toFixed(4)
+
+        // 期望10秒一个切片
+        let rate = time/10
+        // 速率有最大和最小 可以考虑更平滑的过滤 比如1/tan 
+        if(rate<0.5) rate=0.5
+        if(rate>2) rate=2
+        // 新的切片大小等比变化
+        console.log(`切片${count}大小是${this.format(offset)},耗时${time}秒，是30秒的${rate}倍，修正大小为${this.format(offset/rate)}`)
+        offset = parseInt(offset/rate)
+        // if(time)
+        count++
+      }
+
+
+
+    },
 
     // async calculateHash
     async handleUpload() {

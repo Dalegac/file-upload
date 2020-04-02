@@ -45,7 +45,7 @@ class HomeController extends Controller {
       uploaded,
       uploadedList // 过滤诡异的隐藏文件
     }
-  }
+  } 
   async upload(){
     const { ctx } = this
     if(Math.random()<0.5){
