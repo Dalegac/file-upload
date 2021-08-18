@@ -1,0 +1,8 @@
+@startmindmap 优化文件hash值计算
+
+* hash值计算
+** 直接计算
+** web-worker
+** requestIdleCallback
+** 抽样hash
+@endmindmap
