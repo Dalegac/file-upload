@@ -12,7 +12,7 @@
       <textarea ref="article" v-model="article" cols="30" rows="10"></textarea>
       <div class="output" v-html="articleHtml"></div>
     </div>
-    <div v-if="file">{{file.name}}</div> -->
+    <div v-if="file">{{ file.name }}</div> -->
 
     <div>
       上传进度
@@ -76,11 +76,7 @@ export default {
       file: null,
       hash: null,
       preview: null,
-      article: `# 蜗牛老湿开心的一天
-      * 吃饭
-      * 睡觉
-      * 上王者
-`,
+      article: "",
       loading: false,
       hashProgress: 0
     };
@@ -101,15 +97,15 @@ export default {
     }
   },
   async mounted() {
-    // this.bindDragEvent('drag',()=>{
-    //   this.preview = window.URL.createObjectURL(this.file)
-    // })
-    // this.bindDragEvent('article',async ()=>{
-    //     this.loading = true
-    //     const ret = await this.handleUpload()
-    //     this.article += `![${this.file.name}](/api${ret.url})`
-    //     this.loading = false
-    // })
+    this.bindDragEvent("drag", () => {
+      this.preview = window.URL.createObjectURL(this.file);
+    });
+    // this.bindDragEvent("article", async () => {
+    //   this.loading = true;
+    //   const ret = await this.handleUpload();
+    //   this.article += `![${this.file.name}](/api${ret.url})`;
+    //   this.loading = false;
+    // });
     // this.bindPasteEvent();
   },
   methods: {
@@ -295,6 +291,7 @@ export default {
     async calculateHash(file) {
       // 直接计算md5 大文件会卡顿
       const ret = await this.blobToData(file);
+      console.log(ret);
       return sparkMd5.hash(ret);
     },
     // web-worker
@@ -466,7 +463,7 @@ export default {
       let chunks = this.createFileChunk(this.file);
 
       // 计算hash 文件指纹标识
-      // this.hash = await this.calculateHash(this.file)
+      // this.hash = await this.calculateHash(this.file);
       // web-worker
       // this.hash = await this.calculateHashWorker(chunks)
       // requestIdleCallback

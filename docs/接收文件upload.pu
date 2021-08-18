@@ -1,0 +1,19 @@
+@startuml 接收文件upload
+start
+:拼接最终文件存储位置;
+if(文件是否存在？) then(是)
+  :返回文件已存在;
+else(否)
+  if(UPLOAD_DIR文件夹是否存在？) then(是)
+  else(否)
+    :创建文件夹fse.mkdir(UPLOAD_DIR);
+  endif
+    :fse.move(src,dest);
+    note right
+    将文件从暂存区移到
+    UPLOAD_DIR文件夹相应位置
+    end note
+    :返回上传成功;
+endif
+stop
+@enduml

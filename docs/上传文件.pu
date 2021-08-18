@@ -1,0 +1,27 @@
+@startuml 上传文件
+start
+if (文件是否为空?) then (是)
+  :提示“文件不能为空”;
+else (否)
+  :生成文件块;
+  :生成hash码（优化1）;
+  if (检查文件是否已经上传?并返回已上传列表) then (是)
+    :提示“秒传成功”;
+  else (否)
+    :设置文件块属性;
+    :滤除未上传列表;
+    :上传文件块（优化2、3、4）;
+    fork
+      :start();
+    fork again
+      :start();
+    fork again
+      :start();
+    fork again
+      :...;  
+    end fork
+    :发送合并文件快请求;
+  endif
+endif
+stop
+@enduml

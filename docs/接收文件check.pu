@@ -1,0 +1,15 @@
+@startuml 接收文件check
+start
+:用hash值拼接文件位置;
+if(文件是否存在？) then(是)
+  :返回已上传;
+  :客户端提示已秒传;
+else(否)
+  if(文件夹是否存在？) then(是)
+    :返回已上传的文件块数组;
+  else(否)
+    :返回空数组;
+  endif
+endif
+stop
+@enduml
